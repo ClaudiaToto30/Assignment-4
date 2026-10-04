@@ -1,0 +1,260 @@
+---
+title: "Assignment 4"
+author: "Claudia Toto"
+date: "2026-10-03"
+output: html_document
+---
+
+```{r}
+library(readxl)
+library(fpp2)
+```
+## Data
+
+The dataset contains monthly retail sales observations.
+```{r}
+data_check <- read_excel(
+  "MRTSSM44000USN.xlsx",
+  sheet = "Monthly"
+)
+
+head(data_check)
+names(data_check)
+str(data_check)
+attributes(data_check)
+```
+## Time Series
+
+```{r}
+sales_ts <- ts(
+  data_check$MRTSSM44000USN,
+  start = c(1992, 1),
+  frequency = 12
+)
+
+sales_ts
+attributes(sales_ts)
+```
+
+
+```{r}
+## Time Series Plot 
+plot(sales_ts,
+     main = "Monthly U.S. Retail Trade Sales",
+     xlab = "Year",
+     ylab = "Millions of Dollars",
+     yaxt = "n")
+
+axis(2,
+     at = seq(100000, 700000, by = 100000),
+     labels = format(seq(100000, 700000, by = 100000),
+                     big.mark = ",",
+                     scientific = FALSE))
+```
+
+#### The time series shows monthly U.S. retail sales over time. The series has a clear overall upward trend, indicating that retail sales generally increase over the years. The plot also shows recurring monthly fluctuations, suggesting the presence of seasonality. There is a noticeable decline around 2008–2009, followed by a recovery and continued growth. The variability also becomes larger as the level of sales increases.
+
+
+```{r}
+Acf(sales_ts)
+```
+
+
+#### The ACF plot shows very high positive autocorrelation at the first several lags, with the autocorrelation decreasing slowly as the lag increases. This indicates that observations that are close together in time are strongly related to each other. The slow decline in the ACF is consistent with the strong upward trend and seasonal patterns observed in the time series. This suggests that the series is not stationary.
+
+
+
+```{r}
+# Take Mean of all available history
+mean_forecast <- meanf(sales_ts, 5)
+
+plot(mean_forecast,
+     yaxt = "n")
+
+axis(2,
+     at = seq(100000, 700000, by = 100000),
+     labels = format(seq(100000, 700000, by = 100000),
+                     big.mark = ",",
+                     scientific = FALSE))
+```
+
+
+#### The mean forecast uses the historical average of the time series to predict the next five periods. The forecast is approximately constant across the forecast horizon, as shown by the horizontal forecast line. The prediction intervals become wider around the forecast, reflecting increasing uncertainty. Because this model uses only the historical mean, it does not capture the upward trend or the seasonal fluctuations visible in the original time series.
+
+
+```{r}
+# Naive Forecast
+
+naive_forecast <- naive(sales_ts, 5)
+
+plot(naive_forecast,
+     yaxt = "n")
+
+axis(2,
+     at = seq(100000, 700000, by = 100000),
+     labels = format(seq(100000, 700000, by = 100000),
+                     big.mark = ",",
+                     scientific = FALSE))
+```
+
+
+#### The Naive method uses the last observed value of the time series as the forecast for all future periods. In the plot, the forecasts remain approximately constant at the level of the most recent observation. The prediction intervals become wider as the forecast horizon increases, reflecting greater uncertainty. This method does not explicitly account for the long-term upward trend or seasonal pattern in the series.
+
+
+```{r}
+# Seasonal Naive
+snaive_forecast <- snaive(sales_ts, 5)
+
+# Moving Averages
+MA5_forecast <- ma(sales_ts, order = 5)
+MA9_forecast <- ma(sales_ts, order = 9)
+
+# Plot all models in a single chart
+plot(mean_forecast)
+
+lines(snaive_forecast$mean, col = "black")
+lines(MA5_forecast, col = "pink")
+lines(MA9_forecast, col = "blue")
+```
+
+
+####
+The combined forecast plot compares the Mean, Seasonal Naive, and Moving Average models. The Mean forecast provides a relatively constant forecast based on the historical average of the series. The Seasonal Naive forecast accounts for the seasonal pattern by using values from previous seasonal periods. The moving average forecasts (MA5 and MA9) smooth the historical data and follow the general upward trend of the retail sales series. The plot shows that the moving average forecasts follow the observed time series more closely and capture the overall upward trend. The MA5 forecast reacts more quickly to recent changes, while the MA9 forecast is smoother because it uses a longer window. The forecasts differ in how well they capture the trend and fluctuations in the data, which will be evaluated later using an accuracy measure.
+
+```{r}
+# Decomposition
+ets_forecast <- ets(sales_ts)
+plot(ets_forecast,
+     cex.axis = 0.55)
+
+attributes(ets_forecast)
+
+ets_forecast$mse
+```
+
+
+##### The ETS decomposition separates the time series into observed, level, slope, and seasonal components. The observed series shows a clear long-term upward trend with regular monthly fluctuations. The level component increases over time, with noticeable changes around 2009 and 2020. The slope component shows changes in the growth rate, including a decline around 2009 and a sharp increase after 2020. The seasonal component shows a consistent monthly pattern throughout the series, indicating strong recurring seasonality.
+
+
+
+```{r}
+# Holt-Winters
+HW_model <- HoltWinters(sales_ts)
+plot(HW_model)
+
+# Holt-Winters forecast
+HW_forecast <- forecast(HW_model, h = 5)
+plot(HW_forecast)
+
+HW_forecast$mean
+
+# Simple Exponential Smoothing
+SSE_Simple <- HoltWinters(sales_ts)
+attributes(SSE_Simple)
+
+plot(SSE_Simple)
+
+SSE_Simple$SSE
+head(SSE_Simple$fitted)
+```
+
+
+#### The black line represents the observed values, while the red line represents the fitted values from the Holt-Winters model. The red line generally follows the black line, although there are larger differences during periods with sharp increases or decreases. This indicates that the model captures the general pattern of the series but does not perfectly capture all short-term fluctuations.
+
+
+```{r}
+#Forecast ETS
+forecast_ets <- forecast.ets(ets_forecast, h = 5)
+plot(forecast_ets)
+
+forecast_ets$mean
+```
+
+
+
+##### The ETS model was used to forecast the next five periods of the monthly U.S. retail trade sales series. The forecast is based on the level, trend, and seasonal patterns identified by the model. The black line represents the historical observations, while the blue line represents the forecast for the next five periods. The shaded area represents the prediction intervals and shows the uncertainty associated with the forecasts. The forecast continues the general pattern identified by the ETS model, while the prediction intervals become wider as the forecast horizon increases.
+
+
+# Plot all models in a single chart
+```{r}
+# Plot all models in a single chart
+
+# Naive Forecast
+naive_forecast <- naive(sales_ts, 5)
+
+# Seasonal Naive
+snaive_forecast <- snaive(sales_ts, 5)
+
+# Moving Averages
+MA5_forecast <- ma(sales_ts, order = 5)
+MA9_forecast <- ma(sales_ts, order = 9)
+
+# ETS
+ets_forecast <- ets(sales_ts)
+forecast_ets <- forecast(ets_forecast, h = 5)
+
+# Holt-Winters
+HW_model <- HoltWinters(sales_ts)
+HW_forecast <- forecast(HW_model, h = 5)
+
+# Plot
+plot(mean_forecast,
+     main = "Comparison of Retail Sales Forecasting Models",
+     xlab = "Year",
+     ylab = "Millions of Dollars")
+
+lines(naive_forecast$mean, col = "orange")
+lines(snaive_forecast$mean, col = "purple")
+lines(MA5_forecast, col = "black")
+lines(MA9_forecast, col = "green")
+lines(forecast_ets$mean, col = "blue")
+lines(HW_forecast$mean, col = "red")
+
+# Legend
+legend("topleft",
+       legend = c("Mean",
+                  "Naive",
+                  "Seasonal Naive",
+                  "MA(5)",
+                  "MA(9)",
+                  "ETS",
+                  "Holt-Winters"),
+       col = c("blue",
+               "orange",
+               "purple",
+               "black",
+               "green",
+               "blue",
+               "red"),
+       lty = 1,
+       cex = 0.7)
+```
+
+
+# Forecast Accuracy
+```{r}
+accuracy(mean_forecast)
+accuracy(naive_forecast)
+accuracy(snaive_forecast)
+accuracy(forecast_ets)
+accuracy(HW_forecast)
+```
+## Compare MAPE values
+```{r}
+MAPE_comparison <- data.frame(
+  Model = c("Mean", "Naive", "Seasonal Naive", "ETS", "Holt-Winters"),
+  MAPE = c(
+    accuracy(mean_forecast)[,"MAPE"],
+    accuracy(naive_forecast)[,"MAPE"],
+    accuracy(snaive_forecast)[,"MAPE"],
+    accuracy(forecast_ets)[,"MAPE"],
+    accuracy(HW_forecast)[,"MAPE"]
+  )
+)
+
+MAPE_comparison
+```
+
+
+#### Accuracy Comparison
+##### I selected MAPE (Mean Absolute Percentage Error) as the accuracy measure because it expresses the forecast error as a percentage. The Mean model has a MAPE of 38.62%, the Naive model has 7.00%, the Seasonal Naive model has 5.16%, the ETS model has 1.73%, and the Holt-Winters model has 1.87%. Based on the MAPE comparison, the ETS model has the lowest forecast error among the models evaluated. Based on the accuracy comparison, ETS is the best-performing model according to MAPE because it has the lowest MAPE value (1.73%).
